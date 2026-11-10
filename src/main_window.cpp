@@ -135,9 +135,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
             &MainWindow::exit_application);
 
     update_action_states();
+
+    build_thread_ = std::thread(&MainWindow::run_worker, this);
 }
 
 MainWindow::~MainWindow() {
+    {
+        std::lock_guard<std::mutex> lock(build_mutex_);
+        stop_worker_ = true;
+    }
+
+    build_cv_.notify_one();
+
     if (build_thread_.joinable()) {
         build_thread_.join();
     }
@@ -205,10 +214,6 @@ void MainWindow::build_corpus() {
         return;
     }
 
-    Workspace workspace_copy = workspace_;
-    const std::size_t generation = workspace_generation_;
-    const int delay_ms = build_delay_ms_;
-
     std::promise<BuildResult> promise;
     build_future_ = promise.get_future();
 
@@ -222,13 +227,17 @@ void MainWindow::build_corpus() {
 
     update_action_states();
 
-    build_thread_ =
-        std::thread(&MainWindow::run_build,
-                    this,
-                    std::move(workspace_copy),
-                    generation,
-                    delay_ms,
-                    std::move(promise));
+    {
+        std::lock_guard<std::mutex> lock(build_mutex_);
+
+        pending_workspace_ = workspace_;
+        pending_generation_ = workspace_generation_;
+        pending_delay_ms_ = build_delay_ms_;
+        pending_promise_ = std::move(promise);
+        build_requested_ = true;
+    }
+
+    build_cv_.notify_one();
 }
 
 void MainWindow::document_selected(int row) {
@@ -389,48 +398,71 @@ void MainWindow::clear_processing_outputs() {
     context_widget_->clear_context();
 }
 
-void MainWindow::run_build(
-    Workspace workspace,
-    std::size_t generation,
-    int delay_ms,
-    std::promise<BuildResult> promise) {
+void MainWindow::run_worker() {
+    while (true) {
+        Workspace workspace;
+        std::size_t generation = 0;
+        int delay_ms = 0;
+        std::promise<BuildResult> promise;
 
-    BuildResult result;
-    result.generation = generation;
+        {
+            std::unique_lock<std::mutex> lock(build_mutex_);
 
-    try {
-        if (delay_ms > 0) {
-            for (std::size_t i = 0;
-                 i < workspace.documents().size();
-                 ++i) {
-                std::this_thread::sleep_for(
-                    std::chrono::milliseconds(delay_ms));
+            build_cv_.wait(
+                lock,
+                [this]() {
+                    return stop_worker_ || build_requested_;
+                });
+
+            if (stop_worker_) {
+                return;
             }
+
+            workspace = std::move(pending_workspace_);
+            generation = pending_generation_;
+            delay_ms = pending_delay_ms_;
+            promise = std::move(pending_promise_);
+
+            build_requested_ = false;
         }
 
-        result.core = std::make_unique<ProcessingCore>();
-        result.core->rebuild(workspace);
-    }
-    catch (const std::exception& error) {
-        result.error = error.what();
-    }
+        BuildResult result;
+        result.generation = generation;
 
-    const bool failed = !result.error.empty();
+        try {
+            if (delay_ms > 0) {
+                for (std::size_t i = 0;
+                     i < workspace.documents().size();
+                     ++i) {
+                    std::this_thread::sleep_for(
+                        std::chrono::milliseconds(delay_ms));
+                }
+            }
 
-    promise.set_value(std::move(result));
+            result.core = std::make_unique<ProcessingCore>();
+            result.core->rebuild(workspace);
+        }
+        catch (const std::exception& error) {
+            result.error = error.what();
+        }
+
+        const bool failed = !result.error.empty();
+
+        promise.set_value(std::move(result));
 
 #ifdef AIWS_FAULT_LOSE_FAILURE
-    if (failed) {
-        return;
-    }
+        if (failed) {
+            continue;
+        }
 #else
-    (void)failed;
+        (void)failed;
 #endif
 
-    QMetaObject::invokeMethod(
-        this,
-        "build_finished",
-        Qt::QueuedConnection);
+        QMetaObject::invokeMethod(
+            this,
+            "build_finished",
+            Qt::QueuedConnection);
+    }
 }
 
 void MainWindow::remote_add_document(const QString& path) {
@@ -438,10 +470,6 @@ void MainWindow::remote_add_document(const QString& path) {
 }
 
 void MainWindow::build_finished() {
-    if (build_thread_.joinable()) {
-        build_thread_.join();
-    }
-
     BuildResult result = build_future_.get();
 
     build_running_ = false;

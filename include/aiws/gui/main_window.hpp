@@ -6,6 +6,8 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <condition_variable>
+#include <mutex>
 
 #include "aiws/processing_core.hpp"
 #include "aiws/workspace.hpp"
@@ -172,18 +174,23 @@ private:
         std::string error;
     };
     
-    void run_build(Workspace workspace,
-                   std::size_t generation,
-                   int delay_ms,
-                   std::promise<BuildResult> promise);
+    void run_worker();
     
     std::size_t workspace_generation_{0};
     int build_delay_ms_{0};
     bool build_running_{false};
 
+    std::mutex build_mutex_;
+    std::condition_variable build_cv_;
+    bool stop_worker_{false};
+    bool build_requested_{false};
+
+    Workspace pending_workspace_;
+    std::size_t pending_generation_{0};
+    int pending_delay_ms_{0};
+    std::promise<BuildResult> pending_promise_;
+
     std::thread build_thread_;
     std::future<BuildResult> build_future_;
 };
-
-
 }  // namespace aiws::gui
