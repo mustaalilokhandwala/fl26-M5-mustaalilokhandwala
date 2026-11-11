@@ -320,6 +320,7 @@ class M4Tests : public QObject {
     Q_OBJECT
 
 private slots:
+    void idle_shutdown();
     void responsive_build();
     void stale_build_after_add();
     void stale_build_after_reset();
@@ -333,6 +334,17 @@ private slots:
     void partial_request();
     void server_shutdown();
 };
+
+void M4Tests::idle_shutdown() {
+    QElapsedTimer timer;
+    timer.start();
+
+    {
+        aiws::gui::MainWindow window;
+    }
+
+    QVERIFY(timer.elapsed() < 1000);
+}
 
 void M4Tests::responsive_build() {
     QTemporaryDir directory;

@@ -142,7 +142,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 MainWindow::~MainWindow() {
     {
         std::lock_guard<std::mutex> lock(build_mutex_);
+
+#ifdef AIWS_FAULT_SILENT_SHUTDOWN
+        if (build_running_) {
+            stop_worker_ = true;
+        }
+#else
         stop_worker_ = true;
+#endif
     }
 
     build_cv_.notify_one();
