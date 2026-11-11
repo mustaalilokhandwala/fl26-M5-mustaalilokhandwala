@@ -323,6 +323,7 @@ private slots:
     void responsive_build();
     void stale_build_after_add();
     void stale_build_after_reset();
+    void cancels_outdated_build();
     void build_failure();
     void lifecycle_during_build();
     void repeated_builds();
@@ -480,6 +481,69 @@ void M4Tests::stale_build_after_reset() {
     QCOMPARE(
         corpus->text(),
         QString("Corpus: Not built"));
+}
+
+void M4Tests::cancels_outdated_build() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    const QString first =
+        create_file(directory, "first.txt");
+
+    const QString second =
+        create_file(directory, "second.txt");
+
+    const QString third =
+        create_file(directory, "third.txt");
+
+    const QString fourth =
+        create_file(directory, "fourth.txt");
+
+    const QString replacement =
+        create_file(directory, "replacement.txt");
+
+    QVERIFY(!first.isEmpty());
+    QVERIFY(!second.isEmpty());
+    QVERIFY(!third.isEmpty());
+    QVERIFY(!fourth.isEmpty());
+    QVERIFY(!replacement.isEmpty());
+
+    aiws::gui::MainWindow window;
+    window.set_build_delay_ms(500);
+
+    QVERIFY(window.add_document_file(first));
+    QVERIFY(window.add_document_file(second));
+    QVERIFY(window.add_document_file(third));
+    QVERIFY(window.add_document_file(fourth));
+
+    QPushButton* build =
+        find_button(
+            window,
+            "Build Corpus");
+
+    QPushButton* reset =
+        find_button(
+            window,
+            "Reset");
+
+    QVERIFY(build != nullptr);
+    QVERIFY(reset != nullptr);
+
+    build->click();
+
+    QElapsedTimer timer;
+    timer.start();
+
+    reset->click();
+
+    QVERIFY(
+        window.add_document_file(replacement));
+
+    QTRY_VERIFY_WITH_TIMEOUT(
+        build->isEnabled(),
+        1200);
+
+    QVERIFY(timer.elapsed() < 1200);
 }
 
 void M4Tests::build_failure() {

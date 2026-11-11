@@ -186,6 +186,9 @@ bool MainWindow::add_document_file(const QString& path) {
     workspace_widget_->add_document(title);
 
     ++workspace_generation_;
+    if (build_running_) {
+        cancel_build_.store(true);
+    }
     invalidate_corpus();
 
     status_label_->setText("Document added.");
@@ -214,6 +217,7 @@ void MainWindow::build_corpus() {
         return;
     }
 
+    cancel_build_.store(false);
     std::promise<BuildResult> promise;
     build_future_ = promise.get_future();
 
@@ -336,6 +340,10 @@ void MainWindow::term_inspection_requested(const QString& term,
 }
 
 void MainWindow::reset_application() {
+    if (build_running_) {
+        cancel_build_.store(true);
+    }
+
     ++workspace_generation_;
     workspace_.clear();
     corpus_current_ = false;
@@ -429,18 +437,54 @@ void MainWindow::run_worker() {
         BuildResult result;
         result.generation = generation;
 
+        bool cancelled = false;
+
         try {
             if (delay_ms > 0) {
                 for (std::size_t i = 0;
                      i < workspace.documents().size();
                      ++i) {
+                    if (stop_worker_.load()) {
+                        return;
+                    }
+
+        #ifndef AIWS_FAULT_NO_CANCEL
+                    if (cancel_build_.load()) {
+                        cancelled = true;
+                        break;
+                    }
+        #endif
+
                     std::this_thread::sleep_for(
                         std::chrono::milliseconds(delay_ms));
+
+                    if (stop_worker_.load()) {
+                        return;
+                    }
+
+        #ifndef AIWS_FAULT_NO_CANCEL
+                    if (cancel_build_.load()) {
+                        cancelled = true;
+                        break;
+                    }
+        #endif
                 }
             }
 
-            result.core = std::make_unique<ProcessingCore>();
-            result.core->rebuild(workspace);
+            if (stop_worker_.load()) {
+                return;
+            }
+
+        #ifndef AIWS_FAULT_NO_CANCEL
+            if (cancel_build_.load()) {
+                cancelled = true;
+            }
+        #endif
+
+            if (!cancelled) {
+                result.core = std::make_unique<ProcessingCore>();
+                result.core->rebuild(workspace);
+            }
         }
         catch (const std::exception& error) {
             result.error = error.what();

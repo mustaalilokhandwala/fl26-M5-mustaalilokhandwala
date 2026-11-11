@@ -8,6 +8,7 @@
 #include <thread>
 #include <condition_variable>
 #include <mutex>
+#include <atomic>
 
 #include "aiws/processing_core.hpp"
 #include "aiws/workspace.hpp"
@@ -182,7 +183,8 @@ private:
 
     std::mutex build_mutex_;
     std::condition_variable build_cv_;
-    bool stop_worker_{false};
+    std::atomic<bool> stop_worker_{false};
+    std::atomic<bool> cancel_build_{false};
     bool build_requested_{false};
 
     Workspace pending_workspace_;
