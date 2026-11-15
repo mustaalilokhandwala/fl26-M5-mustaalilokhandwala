@@ -158,7 +158,6 @@ private:
 
     Workspace workspace_;
     ProcessingCore processing_core_;
-    bool corpus_current_{false};
     ExitCallback exit_callback_{nullptr};
 
     WorkspaceWidget* workspace_widget_{nullptr};
@@ -175,11 +174,124 @@ private:
         std::string error;
     };
     
+    class CorpusState {
+    public:
+        virtual ~CorpusState() = default;
+
+        virtual std::unique_ptr<CorpusState> workspace_changed(
+            MainWindow& window) {
+            (void)window;
+            return nullptr;
+        }
+
+        virtual std::unique_ptr<CorpusState> build_requested(
+            MainWindow& window) {
+            (void)window;
+            return nullptr;
+        }
+
+        virtual std::unique_ptr<CorpusState> reset(
+            MainWindow& window) {
+            (void)window;
+            return nullptr;
+        }
+
+        virtual std::unique_ptr<CorpusState> build_finished(
+            MainWindow& window,
+            BuildResult result) {
+            (void)window;
+            (void)result;
+            return nullptr;
+        }
+
+        virtual void exit_requested(MainWindow& window);
+
+        virtual bool can_build() const {
+            return false;
+        }
+
+        virtual bool corpus_current() const {
+            return false;
+        }
+
+        virtual bool building() const {
+            return false;
+        }
+    };
+
+    class EmptyState final : public CorpusState {
+    public:
+        std::unique_ptr<CorpusState> workspace_changed(
+            MainWindow& window) override;
+
+        std::unique_ptr<CorpusState> reset(
+            MainWindow& window) override;
+    };
+
+    class StaleState final : public CorpusState {
+    public:
+        std::unique_ptr<CorpusState> workspace_changed(
+            MainWindow& window) override;
+
+        std::unique_ptr<CorpusState> build_requested(
+            MainWindow& window) override;
+
+        std::unique_ptr<CorpusState> reset(
+            MainWindow& window) override;
+
+        bool can_build() const override {
+            return true;
+        }
+    };
+
+    class BuildingState final : public CorpusState {
+    public:
+        std::unique_ptr<CorpusState> workspace_changed(
+            MainWindow& window) override;
+
+        std::unique_ptr<CorpusState> reset(
+            MainWindow& window) override;
+
+        std::unique_ptr<CorpusState> build_finished(
+            MainWindow& window,
+            BuildResult result) override;
+
+        bool building() const override {
+            return true;
+        }
+    };
+
+    class CurrentState final : public CorpusState {
+    public:
+        std::unique_ptr<CorpusState> workspace_changed(
+            MainWindow& window) override;
+
+        std::unique_ptr<CorpusState> build_requested(
+            MainWindow& window) override;
+
+        std::unique_ptr<CorpusState> reset(
+            MainWindow& window) override;
+
+        bool can_build() const override {
+            return true;
+        }
+
+        bool corpus_current() const override {
+            return true;
+        }
+    };
+
+    void transition_to(std::unique_ptr<CorpusState> next_state);
+    void start_build();
+    void perform_reset();
+    void perform_exit();
+
+    std::unique_ptr<CorpusState> corpus_state_;
+
     void run_worker();
     
     std::size_t workspace_generation_{0};
     int build_delay_ms_{0};
-    bool build_running_{false};
 
     std::mutex build_mutex_;
     std::condition_variable build_cv_;

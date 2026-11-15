@@ -26,6 +26,136 @@
 
 namespace aiws::gui {
 
+void MainWindow::CorpusState::exit_requested(
+    MainWindow& window) {
+    window.perform_exit();
+}
+
+std::unique_ptr<MainWindow::CorpusState>
+MainWindow::EmptyState::workspace_changed(
+    MainWindow& window) {
+    window.invalidate_corpus();
+    return std::make_unique<StaleState>();
+}
+
+std::unique_ptr<MainWindow::CorpusState>
+MainWindow::EmptyState::reset(
+    MainWindow& window) {
+    window.perform_reset();
+    return nullptr;
+}
+
+std::unique_ptr<MainWindow::CorpusState>
+MainWindow::StaleState::workspace_changed(
+    MainWindow& window) {
+    window.invalidate_corpus();
+    return nullptr;
+}
+
+std::unique_ptr<MainWindow::CorpusState>
+MainWindow::StaleState::build_requested(
+    MainWindow& window) {
+    window.start_build();
+    return std::make_unique<BuildingState>();
+}
+
+std::unique_ptr<MainWindow::CorpusState>
+MainWindow::StaleState::reset(
+    MainWindow& window) {
+    window.perform_reset();
+    return std::make_unique<EmptyState>();
+}
+
+std::unique_ptr<MainWindow::CorpusState>
+MainWindow::CurrentState::workspace_changed(
+    MainWindow& window) {
+    window.invalidate_corpus();
+    return std::make_unique<StaleState>();
+}
+
+std::unique_ptr<MainWindow::CorpusState>
+MainWindow::CurrentState::build_requested(
+    MainWindow& window) {
+    window.start_build();
+    return std::make_unique<BuildingState>();
+}
+
+std::unique_ptr<MainWindow::CorpusState>
+MainWindow::CurrentState::reset(
+    MainWindow& window) {
+    window.perform_reset();
+    return std::make_unique<EmptyState>();
+}
+
+std::unique_ptr<MainWindow::CorpusState>
+MainWindow::BuildingState::workspace_changed(
+    MainWindow& window) {
+    window.cancel_build_.store(true);
+    window.invalidate_corpus();
+    return nullptr;
+}
+
+std::unique_ptr<MainWindow::CorpusState>
+MainWindow::BuildingState::reset(
+    MainWindow& window) {
+    window.cancel_build_.store(true);
+    window.perform_reset();
+    return nullptr;
+}
+
+std::unique_ptr<MainWindow::CorpusState>
+MainWindow::BuildingState::build_finished(
+    MainWindow& window,
+    BuildResult result) {
+    if (!result.error.empty()) {
+        window.workspace_widget_->set_corpus_status(
+            "Corpus: Not built");
+
+        window.status_label_->setText(
+            QString("Build failed: %1")
+                .arg(QString::fromStdString(
+                    result.error)));
+
+        if (window.workspace_.documents().empty()) {
+            return std::make_unique<EmptyState>();
+        }
+
+        return std::make_unique<StaleState>();
+    }
+
+    bool generation_matches =
+        result.generation ==
+        window.workspace_generation_;
+
+#ifdef AIWS_FAULT_ACCEPT_STALE
+    generation_matches = true;
+#endif
+
+    if (!generation_matches ||
+        result.core == nullptr) {
+        if (window.workspace_.documents().empty()) {
+            return std::make_unique<EmptyState>();
+        }
+
+        return std::make_unique<StaleState>();
+    }
+
+    window.processing_core_ =
+        std::move(*result.core);
+
+    window.clear_processing_outputs();
+
+    window.workspace_widget_->set_corpus_status(
+        QString("Corpus: %1 chunks")
+            .arg(static_cast<unsigned long long>(
+                window.processing_core_.chunk_count())));
+
+    window.status_label_->setText(
+        "Corpus built.");
+
+    return std::make_unique<CurrentState>();
+}
+
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowTitle("AI Workspace");
     resize(900, 900);
@@ -134,6 +264,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
             this,
             &MainWindow::exit_application);
 
+    corpus_state_ = std::make_unique<EmptyState>();
+
     update_action_states();
 
     build_thread_ = std::thread(&MainWindow::run_worker, this);
@@ -144,7 +276,7 @@ MainWindow::~MainWindow() {
         std::lock_guard<std::mutex> lock(build_mutex_);
 
 #ifdef AIWS_FAULT_SILENT_SHUTDOWN
-        if (build_running_) {
+        if (corpus_state_->building()) {
             stop_worker_ = true;
         }
 #else
@@ -193,10 +325,8 @@ bool MainWindow::add_document_file(const QString& path) {
     workspace_widget_->add_document(title);
 
     ++workspace_generation_;
-    if (build_running_) {
-        cancel_build_.store(true);
-    }
-    invalidate_corpus();
+
+    transition_to(corpus_state_->workspace_changed(*this));
 
     status_label_->setText("Document added.");
 
@@ -220,35 +350,8 @@ void MainWindow::add_document() {
 }
 
 void MainWindow::build_corpus() {
-    if (workspace_.documents().empty() || build_running_) {
-        return;
-    }
-
-    cancel_build_.store(false);
-    std::promise<BuildResult> promise;
-    build_future_ = promise.get_future();
-
-    build_running_ = true;
-    corpus_current_ = false;
-
-    clear_processing_outputs();
-
-    workspace_widget_->set_corpus_status("Corpus: Building");
-    status_label_->setText("Building corpus.");
-
-    update_action_states();
-
-    {
-        std::lock_guard<std::mutex> lock(build_mutex_);
-
-        pending_workspace_ = workspace_;
-        pending_generation_ = workspace_generation_;
-        pending_delay_ms_ = build_delay_ms_;
-        pending_promise_ = std::move(promise);
-        build_requested_ = true;
-    }
-
-    build_cv_.notify_one();
+    transition_to(
+        corpus_state_->build_requested(*this));
 }
 
 void MainWindow::document_selected(int row) {
@@ -267,7 +370,7 @@ void MainWindow::document_selected(int row) {
 }
 
 void MainWindow::search_requested(const QString& query, int k) {
-    if (!corpus_current_ || query.trimmed().isEmpty()) {
+    if (!corpus_state_->corpus_current() || query.trimmed().isEmpty()) {
         return;
     }
 
@@ -290,7 +393,7 @@ void MainWindow::query_changed(const QString& query) {
 }
 
 void MainWindow::build_context_requested(int token_budget) {
-    if (!corpus_current_ || !search_widget_->has_query()) {
+    if (!corpus_state_->corpus_current() || !search_widget_->has_query()) {
         return;
     }
 
@@ -320,7 +423,7 @@ void MainWindow::source_document_requested(const QString& document_id) {
 
 void MainWindow::term_inspection_requested(const QString& term,
                                            const QString& chunk_id) {
-    if (!corpus_current_ || term.trimmed().isEmpty()) {
+    if (!corpus_state_->corpus_current() || term.trimmed().isEmpty()) {
         return;
     }
 
@@ -347,13 +450,13 @@ void MainWindow::term_inspection_requested(const QString& term,
 }
 
 void MainWindow::reset_application() {
-    if (build_running_) {
-        cancel_build_.store(true);
-    }
+    transition_to(
+        corpus_state_->reset(*this));
+}
 
+void MainWindow::perform_reset() {
     ++workspace_generation_;
     workspace_.clear();
-    corpus_current_ = false;
 
     Resettable* components[] = {
         workspace_widget_,
@@ -366,51 +469,85 @@ void MainWindow::reset_application() {
         component->reset();
     }
 
-    status_label_->setText("Application reset.");
-
-    update_action_states();
+    status_label_->setText(
+        "Application reset.");
 }
 
 void MainWindow::exit_application() {
+    corpus_state_->exit_requested(*this);
+}
+
+void MainWindow::perform_exit() {
     if (exit_callback_ != nullptr) {
         exit_callback_(this);
     }
 }
 
 void MainWindow::update_action_states() {
-    const bool has_documents =
-        !workspace_.documents().empty();
-
     const bool processing_available =
-        corpus_current_ && search_widget_->has_query();
+        corpus_state_->corpus_current() &&
+        search_widget_->has_query();
 
     workspace_widget_->set_build_corpus_enabled(
-        has_documents && !build_running_);
+        corpus_state_->can_build());
 
-    search_widget_->set_search_enabled(processing_available);
+    search_widget_->set_search_enabled(
+        processing_available);
 
     term_inspector_widget_->set_inspection_enabled(
-        corpus_current_);
+        corpus_state_->corpus_current());
 
     context_widget_->set_build_context_enabled(
         processing_available);
 }
 
 void MainWindow::invalidate_corpus() {
-    corpus_current_ = false;
-
     workspace_widget_->set_corpus_status(
         "Corpus: Not built");
 
     clear_processing_outputs();
-
-    update_action_states();
 }
 
 void MainWindow::clear_processing_outputs() {
     search_widget_->clear_results();
     term_inspector_widget_->clear_statistics();
     context_widget_->clear_context();
+}
+
+void MainWindow::transition_to(
+    std::unique_ptr<CorpusState> next_state) {
+    if (next_state != nullptr) {
+        corpus_state_ = std::move(next_state);
+    }
+
+    update_action_states();
+}
+
+void MainWindow::start_build() {
+    cancel_build_.store(false);
+
+    std::promise<BuildResult> promise;
+    build_future_ = promise.get_future();
+
+    clear_processing_outputs();
+
+    workspace_widget_->set_corpus_status(
+        "Corpus: Building");
+
+    status_label_->setText(
+        "Building corpus.");
+
+    {
+        std::lock_guard<std::mutex> lock(build_mutex_);
+
+        pending_workspace_ = workspace_;
+        pending_generation_ = workspace_generation_;
+        pending_delay_ms_ = build_delay_ms_;
+        pending_promise_ = std::move(promise);
+        build_requested_ = true;
+    }
+
+    build_cv_.notify_one();
 }
 
 void MainWindow::run_worker() {
@@ -521,50 +658,12 @@ void MainWindow::remote_add_document(const QString& path) {
 }
 
 void MainWindow::build_finished() {
-    BuildResult result = build_future_.get();
+    BuildResult result =
+        build_future_.get();
 
-    build_running_ = false;
-
-    if (!result.error.empty()) {
-        corpus_current_ = false;
-
-        workspace_widget_->set_corpus_status(
-            "Corpus: Not built");
-
-        status_label_->setText(
-            QString("Build failed: %1")
-                .arg(QString::fromStdString(result.error)));
-
-        update_action_states();
-        return;
-    }
-
-    bool generation_matches =
-        result.generation == workspace_generation_;
-
-#ifdef AIWS_FAULT_ACCEPT_STALE
-    generation_matches = true;
-#endif
-
-    if (!generation_matches) {
-        corpus_current_ = false;
-        update_action_states();
-        return;
-    }
-
-    processing_core_ = std::move(*result.core);
-    corpus_current_ = true;
-
-    clear_processing_outputs();
-
-    workspace_widget_->set_corpus_status(
-        QString("Corpus: %1 chunks")
-            .arg(static_cast<unsigned long long>(
-                processing_core_.chunk_count())));
-
-    status_label_->setText("Corpus built.");
-
-    update_action_states();
+    transition_to(
+        corpus_state_->build_finished(
+            *this,
+            std::move(result)));
 }
-
 }  // namespace aiws::gui

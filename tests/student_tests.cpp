@@ -321,6 +321,7 @@ class M4Tests : public QObject {
 
 private slots:
     void idle_shutdown();
+    void state_lifecycle();
     void responsive_build();
     void stale_build_after_add();
     void stale_build_after_reset();
@@ -344,6 +345,70 @@ void M4Tests::idle_shutdown() {
     }
 
     QVERIFY(timer.elapsed() < 1000);
+}
+
+void M4Tests::state_lifecycle() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    const QString path =
+        create_file(
+            directory,
+            "state.txt");
+
+    QVERIFY(!path.isEmpty());
+
+    aiws::gui::MainWindow window;
+    window.set_build_delay_ms(100);
+
+    QPushButton* build =
+        find_button(
+            window,
+            "Build Corpus");
+
+    QPushButton* reset =
+        find_button(
+            window,
+            "Reset");
+
+    QLabel* corpus =
+        find_corpus_label(window);
+
+    QVERIFY(build != nullptr);
+    QVERIFY(reset != nullptr);
+    QVERIFY(corpus != nullptr);
+
+    QVERIFY(!build->isEnabled());
+
+    QVERIFY(
+        window.add_document_file(path));
+
+    QVERIFY(build->isEnabled());
+
+    QCOMPARE(
+        corpus->text(),
+        QString("Corpus: Not built"));
+
+    build->click();
+
+    QVERIFY(!build->isEnabled());
+
+    QCOMPARE(
+        corpus->text(),
+        QString("Corpus: Building"));
+
+    QTRY_VERIFY(
+        corpus->text().contains("chunks"));
+
+    QVERIFY(build->isEnabled());
+
+    reset->click();
+
+    QVERIFY(!build->isEnabled());
+
+    QCOMPARE(
+        corpus->text(),
+        QString("Corpus: Not built"));
 }
 
 void M4Tests::responsive_build() {
