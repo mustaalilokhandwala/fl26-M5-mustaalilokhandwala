@@ -1,3 +1,63 @@
+commit 7cc829ff16d6d80436cac712de8aa91b62aa6961
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-15 10:47:27 -0500
+
+    Implemented M5 State pattern
+
+ include/aiws/gui/main_window.hpp | 116 ++++++++++++++-
+ src/main_window.cpp              | 297 ++++++++++++++++++++++++++-------------
+ tests/student_tests.cpp          |  65 +++++++++
+ 3 files changed, 377 insertions(+), 101 deletions(-)
+
+commit 1af60c4e743b11a7edccc1aace1b5d7e43f8c453
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-11 13:23:51 -0500
+
+    Implemented M5 shutdown handling
+
+ src/main_window.cpp     |  7 +++++++
+ tests/student_tests.cpp | 12 ++++++++++++
+ 2 files changed, 19 insertions(+)
+
+commit a51b66acead719900ed1d97da8b2a5c7c237e019
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-10 20:28:39 -0500
+
+    Implemented M5 build cancellation
+
+ include/aiws/gui/main_window.hpp |  4 ++-
+ src/main_window.cpp              | 48 ++++++++++++++++++++++++++++--
+ tests/student_tests.cpp          | 64 ++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 113 insertions(+), 3 deletions(-)
+
+commit 528f3d24c0a7a74fe76bda3938710ed2e425c2a6
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-10 16:04:26 -0500
+
+    Implement M5 build worker
+
+ include/aiws/gui/main_window.hpp |  19 ++++--
+ src/main_window.cpp              | 122 ++++++++++++++++++++++++---------------
+ 2 files changed, 88 insertions(+), 53 deletions(-)
+
+commit 94578a31486329740c810bd396b4b0fbede0c2fd
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-10 11:31:13 -0500
+
+    Set up M5 application target
+
+ CMakeLists.txt | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit c95a58ac6bcba2f1390164e35f88b9a82bf8b34d
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-07 12:35:05 -0500
+
+    Added M4 History.txt
+
+ HISTORY.txt | 94 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 94 insertions(+)
+
 commit 2660ca1ca3e31f82ed0ebeaac581c7e9da6d9f88
 Author: Mustaali Lokhandwala <mustaali23@vt.edu>
 Date:   2026-11-07 12:25:30 -0500
