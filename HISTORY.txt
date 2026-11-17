@@ -1,3 +1,21 @@
+commit 59c01f212c58a79eefcd1479e3324c3540eaea33
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-17 14:31:56 -0500
+
+    Allows immediate rebuild after workspace change
+
+ tests/student_tests.cpp | 16 +++++++---------
+ 1 file changed, 7 insertions(+), 9 deletions(-)
+
+commit e3eb07b88c816732157c6d905ff8c45592213d27
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-17 13:54:37 -0500
+
+    Updated M5 history
+
+ HISTORY.txt | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
 commit d421a2d1aa507da0d1f775419facae371c29cb79
 Author: Mustaali Lokhandwala <mustaali23@vt.edu>
 Date:   2026-11-17 13:53:54 -0500
