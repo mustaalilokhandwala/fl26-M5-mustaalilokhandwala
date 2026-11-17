@@ -1,3 +1,22 @@
+commit d421a2d1aa507da0d1f775419facae371c29cb79
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-17 13:53:54 -0500
+
+    Allowed rebuild after workspace change
+
+ include/aiws/gui/main_window.hpp | 5 +++++
+ src/main_window.cpp              | 5 +++++
+ 2 files changed, 10 insertions(+)
+
+commit cbadaf2f9358f01b32b8e0e0042403f6f42e241a
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-17 13:28:39 -0500
+
+    Updated M5 history
+
+ HISTORY.txt | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
 commit 2e5e2d7be4eb554813cdfae371feb70fdc43f52a
 Author: Mustaali Lokhandwala <mustaali23@vt.edu>
 Date:   2026-11-17 13:28:05 -0500
