@@ -1,3 +1,21 @@
+commit 2e5e2d7be4eb554813cdfae371feb70fdc43f52a
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-17 13:28:05 -0500
+
+    Fixed build cancellation synchronization
+
+ src/main_window.cpp | 34 +++++++++++++++++++++++++++++-----
+ 1 file changed, 29 insertions(+), 5 deletions(-)
+
+commit 1a23d709911d0fbd64869ce2be44dd57596bb279
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-17 11:49:37 -0500
+
+    Updated M5 history
+
+ HISTORY.txt | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
 commit 6641476e56b328c28bcbc179a6727a04bfd9cb2c
 Author: Mustaali Lokhandwala <mustaali23@vt.edu>
 Date:   2026-11-17 11:48:51 -0500
