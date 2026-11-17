@@ -91,6 +91,7 @@ std::unique_ptr<MainWindow::CorpusState>
 MainWindow::BuildingState::workspace_changed(
     MainWindow& window) {
     window.cancel_build_.store(true);
+    window.build_cv_.notify_one();
     window.invalidate_corpus();
     return nullptr;
 }
@@ -99,6 +100,7 @@ std::unique_ptr<MainWindow::CorpusState>
 MainWindow::BuildingState::reset(
     MainWindow& window) {
     window.cancel_build_.store(true);
+    window.build_cv_.notify_one();
     window.perform_reset();
     return nullptr;
 }
@@ -599,8 +601,22 @@ void MainWindow::run_worker() {
                     }
         #endif
 
-                    std::this_thread::sleep_for(
-                        std::chrono::milliseconds(delay_ms));
+                    {
+                        std::unique_lock<std::mutex> delay_lock(
+                            build_mutex_);
+
+                        build_cv_.wait_for(
+                            delay_lock,
+                            std::chrono::milliseconds(delay_ms),
+                            [this]() {
+                    #ifdef AIWS_FAULT_NO_CANCEL
+                                return stop_worker_.load();
+                    #else
+                                return stop_worker_.load() ||
+                                       cancel_build_.load();
+                    #endif
+                            });
+                    }
 
                     if (stop_worker_.load()) {
                         return;
