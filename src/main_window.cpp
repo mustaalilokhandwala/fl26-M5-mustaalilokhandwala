@@ -312,6 +312,9 @@ bool MainWindow::add_document_file(const QString& path) {
         return false;
     }
 
+    transition_to(
+        corpus_state_->workspace_changed(*this));
+
     QTextStream stream(&file);
     const QString text = stream.readAll();
 
@@ -327,8 +330,6 @@ bool MainWindow::add_document_file(const QString& path) {
     workspace_widget_->add_document(title);
 
     ++workspace_generation_;
-
-    transition_to(corpus_state_->workspace_changed(*this));
 
     status_label_->setText("Document added.");
 
