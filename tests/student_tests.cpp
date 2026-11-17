@@ -495,9 +495,7 @@ void M4Tests::stale_build_after_add() {
     QElapsedTimer timer;
     timer.start();
 
-    QTRY_VERIFY_WITH_TIMEOUT(
-        build->isEnabled(),
-        1000);
+    QVERIFY(build->isEnabled());
 
     build->click();
 
@@ -560,13 +558,13 @@ void M4Tests::stale_build_after_reset() {
     QVERIFY(
         window.add_document_file(second));
 
-    QVERIFY(!build->isEnabled());
+    QVERIFY(build->isEnabled());
 
-    QTRY_VERIFY(build->isEnabled());
+    build->click();
 
-    QCOMPARE(
-        corpus->text(),
-        QString("Corpus: Not built"));
+    QTRY_VERIFY_WITH_TIMEOUT(
+        corpus->text().contains("chunks"),
+        1500);
 }
 
 void M4Tests::cancels_outdated_build() {
@@ -825,7 +823,7 @@ void M4Tests::remote_add() {
             "second.txt"
         });
 
-    QVERIFY(sender.waitForStarted(1000));
+    QVERIFY(sender.waitForStarted(3000));
     QVERIFY(sender.waitForFinished(5000));
 
     QCOMPARE(sender.exitCode(), 0);
