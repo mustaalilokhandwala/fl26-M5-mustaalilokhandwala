@@ -1,3 +1,21 @@
+commit 4dcb0a197288da59cf0e87de1d845683e296cce1
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-17 11:22:48 -0500
+
+    Fixed workspace change build cancellation
+
+ src/main_window.cpp | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+commit 5fba972b7859c74b70388b7628246ef9724d46c0
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-17 10:54:20 -0500
+
+    Updated M5 history
+
+ HISTORY.txt | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
 commit bfa797292cc57f2047ca0614571d7ffd811a4af3
 Author: Mustaali Lokhandwala <mustaali23@vt.edu>
 Date:   2026-11-17 10:53:51 -0500
