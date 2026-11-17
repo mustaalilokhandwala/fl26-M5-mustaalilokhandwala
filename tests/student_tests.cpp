@@ -492,11 +492,20 @@ void M4Tests::stale_build_after_add() {
     QVERIFY(
         window.add_document_file(second));
 
-    QTRY_VERIFY(build->isEnabled());
+    QElapsedTimer timer;
+    timer.start();
 
-    QCOMPARE(
-        corpus->text(),
-        QString("Corpus: Not built"));
+    QTRY_VERIFY_WITH_TIMEOUT(
+        build->isEnabled(),
+        1000);
+
+    build->click();
+
+    QTRY_VERIFY_WITH_TIMEOUT(
+        corpus->text().contains("chunks"),
+        1000);
+
+    QVERIFY(timer.elapsed() < 1000);
 }
 
 void M4Tests::stale_build_after_reset() {
@@ -603,8 +612,12 @@ void M4Tests::cancels_outdated_build() {
             window,
             "Reset");
 
+    QLabel* corpus =
+        find_corpus_label(window);
+
     QVERIFY(build != nullptr);
     QVERIFY(reset != nullptr);
+    QVERIFY(corpus != nullptr);
 
     build->click();
 
@@ -620,7 +633,13 @@ void M4Tests::cancels_outdated_build() {
         build->isEnabled(),
         1200);
 
-    QVERIFY(timer.elapsed() < 1200);
+    build->click();
+
+    QTRY_VERIFY_WITH_TIMEOUT(
+        corpus->text().contains("chunks"),
+        1500);
+
+    QVERIFY(timer.elapsed() < 1500);
 }
 
 void M4Tests::build_failure() {

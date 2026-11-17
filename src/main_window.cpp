@@ -90,6 +90,7 @@ MainWindow::CurrentState::reset(
 std::unique_ptr<MainWindow::CorpusState>
 MainWindow::BuildingState::workspace_changed(
     MainWindow& window) {
+    rebuild_requested_ = false;
     window.cancel_build_.store(true);
     window.build_cv_.notify_one();
     window.invalidate_corpus();
@@ -97,8 +98,18 @@ MainWindow::BuildingState::workspace_changed(
 }
 
 std::unique_ptr<MainWindow::CorpusState>
+MainWindow::BuildingState::build_requested(
+    MainWindow& window) {
+    rebuild_requested_ = true;
+    window.cancel_build_.store(true);
+    window.build_cv_.notify_one();
+    return nullptr;
+}
+
+std::unique_ptr<MainWindow::CorpusState>
 MainWindow::BuildingState::reset(
     MainWindow& window) {
+    rebuild_requested_ = false;
     window.cancel_build_.store(true);
     window.build_cv_.notify_one();
     window.perform_reset();
@@ -109,6 +120,12 @@ std::unique_ptr<MainWindow::CorpusState>
 MainWindow::BuildingState::build_finished(
     MainWindow& window,
     BuildResult result) {
+    if (rebuild_requested_) {
+        rebuild_requested_ = false;
+        window.start_build();
+        return nullptr;
+    }
+
     if (!result.error.empty()) {
         window.workspace_widget_->set_corpus_status(
             "Corpus: Not built");
@@ -312,9 +329,6 @@ bool MainWindow::add_document_file(const QString& path) {
         return false;
     }
 
-    transition_to(
-        corpus_state_->workspace_changed(*this));
-
     QTextStream stream(&file);
     const QString text = stream.readAll();
 
@@ -330,6 +344,9 @@ bool MainWindow::add_document_file(const QString& path) {
     workspace_widget_->add_document(title);
 
     ++workspace_generation_;
+
+    transition_to(
+        corpus_state_->workspace_changed(*this));
 
     status_label_->setText("Document added.");
 

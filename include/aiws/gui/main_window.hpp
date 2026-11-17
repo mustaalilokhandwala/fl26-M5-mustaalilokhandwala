@@ -249,6 +249,9 @@ private:
         std::unique_ptr<CorpusState> workspace_changed(
             MainWindow& window) override;
 
+        std::unique_ptr<CorpusState> build_requested(
+            MainWindow& window) override;
+
         std::unique_ptr<CorpusState> reset(
             MainWindow& window) override;
 
@@ -259,6 +262,9 @@ private:
         bool building() const override {
             return true;
         }
+
+    private:
+        bool rebuild_requested_{false};
     };
 
     class CurrentState final : public CorpusState {
