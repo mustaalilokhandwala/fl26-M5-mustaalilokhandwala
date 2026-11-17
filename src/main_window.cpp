@@ -91,6 +91,7 @@ std::unique_ptr<MainWindow::CorpusState>
 MainWindow::BuildingState::workspace_changed(
     MainWindow& window) {
     rebuild_requested_ = false;
+    rebuild_allowed_ = true;
 
     {
         std::lock_guard<std::mutex> lock(
@@ -109,6 +110,7 @@ std::unique_ptr<MainWindow::CorpusState>
 MainWindow::BuildingState::build_requested(
     MainWindow& window) {
     rebuild_requested_ = true;
+    rebuild_allowed_ = false;
 
     {
         std::lock_guard<std::mutex> lock(
@@ -126,6 +128,7 @@ std::unique_ptr<MainWindow::CorpusState>
 MainWindow::BuildingState::reset(
     MainWindow& window) {
     rebuild_requested_ = false;
+    rebuild_allowed_ = false;
 
     {
         std::lock_guard<std::mutex> lock(
@@ -146,6 +149,8 @@ MainWindow::BuildingState::build_finished(
     BuildResult result) {
     if (rebuild_requested_) {
         rebuild_requested_ = false;
+        rebuild_allowed_ = false;
+
         window.start_build();
         return nullptr;
     }

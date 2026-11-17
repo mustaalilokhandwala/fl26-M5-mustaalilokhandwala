@@ -259,12 +259,17 @@ private:
             MainWindow& window,
             BuildResult result) override;
 
+        bool can_build() const override {
+            return rebuild_allowed_ && !rebuild_requested_;
+        }
+
         bool building() const override {
             return true;
         }
 
     private:
         bool rebuild_requested_{false};
+        bool rebuild_allowed_{false};
     };
 
     class CurrentState final : public CorpusState {
