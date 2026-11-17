@@ -91,8 +91,16 @@ std::unique_ptr<MainWindow::CorpusState>
 MainWindow::BuildingState::workspace_changed(
     MainWindow& window) {
     rebuild_requested_ = false;
-    window.cancel_build_.store(true);
+
+    {
+        std::lock_guard<std::mutex> lock(
+            window.build_mutex_);
+
+        window.cancel_build_.store(true);
+    }
+
     window.build_cv_.notify_one();
+
     window.invalidate_corpus();
     return nullptr;
 }
@@ -101,8 +109,16 @@ std::unique_ptr<MainWindow::CorpusState>
 MainWindow::BuildingState::build_requested(
     MainWindow& window) {
     rebuild_requested_ = true;
-    window.cancel_build_.store(true);
+
+    {
+        std::lock_guard<std::mutex> lock(
+            window.build_mutex_);
+
+        window.cancel_build_.store(true);
+    }
+
     window.build_cv_.notify_one();
+
     return nullptr;
 }
 
@@ -110,8 +126,16 @@ std::unique_ptr<MainWindow::CorpusState>
 MainWindow::BuildingState::reset(
     MainWindow& window) {
     rebuild_requested_ = false;
-    window.cancel_build_.store(true);
+
+    {
+        std::lock_guard<std::mutex> lock(
+            window.build_mutex_);
+
+        window.cancel_build_.store(true);
+    }
+
     window.build_cv_.notify_one();
+
     window.perform_reset();
     return nullptr;
 }
@@ -544,8 +568,6 @@ void MainWindow::transition_to(
 }
 
 void MainWindow::start_build() {
-    cancel_build_.store(false);
-
     std::promise<BuildResult> promise;
     build_future_ = promise.get_future();
 
@@ -559,6 +581,8 @@ void MainWindow::start_build() {
 
     {
         std::lock_guard<std::mutex> lock(build_mutex_);
+
+        cancel_build_.store(false);
 
         pending_workspace_ = workspace_;
         pending_generation_ = workspace_generation_;
