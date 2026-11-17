@@ -1,3 +1,30 @@
+commit 3280084d91afff483503c918a2d71a69ba6cfdb5
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-17 15:08:41 -0500
+
+    Update VIDEO.md
+
+ VIDEO.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit fd5fb9435b19279f86b1799af7fcd3d7ebb416e9
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-17 15:08:04 -0500
+
+    Updated DESIGN.md
+
+ DESIGN.md | 60 +++++++++++++++++++++---------------------------------------
+ 1 file changed, 21 insertions(+), 39 deletions(-)
+
+commit 10a7762a01748717dbfd801d453d51917bf72b6b
+Author: Mustaali Lokhandwala <mustaali23@vt.edu>
+Date:   2026-11-17 14:32:59 -0500
+
+    Updated M5 history
+
+ HISTORY.txt | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
 commit 59c01f212c58a79eefcd1479e3324c3540eaea33
 Author: Mustaali Lokhandwala <mustaali23@vt.edu>
 Date:   2026-11-17 14:31:56 -0500
